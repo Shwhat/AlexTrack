@@ -795,7 +795,7 @@ export default function HistoryRows({
           <StoolForm
             date={row.date}
             maxDate={maxDateFor(row)}
-            row={{ id: edit.rowId, type: edit.type }}
+            row={{ id: edit.rowId, type: edit.type, details: edit.details }}
             subjectProfileId={row.profileId}
             onSaved={() => {
               toast("Corrected.");

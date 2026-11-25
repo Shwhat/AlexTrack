@@ -8,6 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import HistoryRows from "@/app/(app)/history/HistoryRows";
 import { bodyMetricMeasures } from "@/lib/body-metric-measures";
+import { EMPTY_STOOL_DETAILS } from "@/lib/bristol-stool";
 import {
   detailSegment,
   historyClock,
@@ -302,7 +303,12 @@ describe("the record's correction opens over its row, never in place of it", () 
         kind: "stool",
         title: "Type 4",
         clock: historyClock("07:41", "stated", H24),
-        edit: { kind: "stool", rowId: 3, type: 4 },
+        edit: {
+          kind: "stool",
+          rowId: 3,
+          type: 4,
+          details: EMPTY_STOOL_DETAILS,
+        },
       }),
     ]);
 
@@ -328,7 +334,12 @@ describe("the record's correction opens over its row, never in place of it", () 
         kind: "stool",
         title: "Type 4",
         clock: historyClock("07:41", "stated", H24),
-        edit: { kind: "stool", rowId: 3, type: 4 },
+        edit: {
+          kind: "stool",
+          rowId: 3,
+          type: 4,
+          details: EMPTY_STOOL_DETAILS,
+        },
       }),
     ]);
     expect(screen.getByRole("dialog", { name: "Type 4 — 07:41" })).toBeTruthy();

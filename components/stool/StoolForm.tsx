@@ -5,7 +5,16 @@ import InlineError from "@/components/InlineError";
 import { useLoggedViaStamp } from "@/components/LoggedViaSurface";
 import { useTimezone } from "@/components/TimezoneProvider";
 import WhenControl, { type WhenValue } from "@/components/WhenControl";
-import { BRISTOL_STOOL_TYPES } from "@/lib/bristol-stool";
+import {
+  EMPTY_STOOL_DETAILS,
+  STOOL_AMOUNTS,
+  STOOL_COLORS,
+  isStoolAmount,
+  isStoolColor,
+  isStoolYesNo,
+  type StoolDetails,
+  BRISTOL_STOOL_TYPES,
+} from "@/lib/bristol-stool";
 import { statedHhmm, whenOnDay } from "@/lib/stated-time";
 import { correctStoolReading, logStoolForm } from "@/app/(app)/stool-actions";
 import FormDismissAction from "@/components/FormDismissAction";
@@ -28,10 +37,9 @@ import SubmitButton from "@/components/SubmitButton";
 // issue's shared event-patch core closes and which is not written). Nothing shipped
 // reaches that arm, and a when-field here is exactly what would reach it.
 //
-// So what a correction moves is the TYPE, which is the mis-tap #4433 names —
-// `correctStoolReading` posts nothing else. A movement filed on the wrong day is a
-// delete and a re-log, which the ⋯ offers both of and which writes a row whose date and
-// instant agree.
+// A correction moves the TYPE and optional details; a movement filed on the wrong day
+// is a delete and a re-log, which the ⋯ offers both of and which writes a row whose date
+// and instant agree.
 //
 // A SELECT, NOT THE SEVEN ICONS. The picker is the domain's TAP surface
 // (`StoolTypeControl`) and belongs where a tap is the whole interaction; inside a form
@@ -53,6 +61,7 @@ export interface StoolReadingRow {
    * control an eighth state and the CLEAR the write core already accepts.
    */
   type: number | null;
+  details?: StoolDetails;
 }
 
 export default function StoolForm({
@@ -86,6 +95,7 @@ export default function StoolForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState(row?.type ?? 4);
+  const [details, setDetails] = useState(row?.details ?? EMPTY_STOOL_DETAILS);
   // THE PAIR, held as one value (#2236 invariant 1). `date` opens on the day the reader
   // was looking at and `statedAt` opens on the instant the door was opened at, or EMPTY
   // — never defaulted to now, so a backfill that states no minute still states none and
@@ -159,6 +169,88 @@ export default function StoolForm({
           ))}
         </select>
       </label>
+      <fieldset className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
+        <legend className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+          Optional details
+        </legend>
+        <label className="text-xs text-slate-500 dark:text-slate-400">
+          Color
+          <select
+            name="color"
+            value={details.color ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              setDetails((current) => ({
+                ...current,
+                color: value === "" || !isStoolColor(value) ? null : value,
+              }));
+            }}
+            className="input mt-1 w-full"
+          >
+            <option value="">Not recorded</option>
+            {STOOL_COLORS.map((color) => (
+              <option key={color} value={color}>
+                {color[0]!.toUpperCase() + color.slice(1)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs text-slate-500 dark:text-slate-400">
+          Amount
+          <select
+            name="amount"
+            value={details.amount ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              setDetails((current) => ({
+                ...current,
+                amount: value === "" || !isStoolAmount(value) ? null : value,
+              }));
+            }}
+            className="input mt-1 w-full"
+          >
+            <option value="">Not recorded</option>
+            {STOOL_AMOUNTS.map((amount) => (
+              <option key={amount} value={amount}>
+                {amount[0]!.toUpperCase() + amount.slice(1)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(
+          [
+            ["urgency", "Urgency"],
+            ["pain", "Pain"],
+            ["straining", "Straining"],
+            ["incomplete", "Incomplete evacuation"],
+            ["mucus", "Mucus"],
+            ["blood", "Visible blood"],
+          ] as const
+        ).map(([field, label]) => (
+          <label
+            key={field}
+            className="text-xs text-slate-500 dark:text-slate-400"
+          >
+            {label}
+            <select
+              name={field}
+              value={details[field] ?? ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDetails((current) => ({
+                  ...current,
+                  [field]: isStoolYesNo(value) ? value : null,
+                }));
+              }}
+              className="input mt-1 w-full"
+            >
+              <option value="">Not recorded</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+        ))}
+      </fieldset>
       <InlineError>{error}</InlineError>
       <div className="flex flex-col items-start gap-1 sm:col-span-2">
         <SubmitButton

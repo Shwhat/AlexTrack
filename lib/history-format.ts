@@ -50,6 +50,7 @@ import type { MergeableRow } from "./timeline-multi";
 import type { TimelineEvent } from "./timeline-format";
 import { flagLabel, isOutOfRange } from "./reference-range/flags";
 import { isRealIsoDate } from "./date";
+import type { StoolDetails } from "./bristol-stool";
 
 // THE CLOSED KIND REGISTRY (#3958), one family at a time and in chip order.
 //
@@ -359,6 +360,7 @@ export type HistoryRowEdit =
       kind: "stool";
       rowId: number;
       type: number | null;
+      details: StoolDetails;
     }
   | {
       /**

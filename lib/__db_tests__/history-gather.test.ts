@@ -1155,10 +1155,19 @@ describe("stool rows on the record", () => {
     expect(gather.presentKinds).toContain("stool");
   });
 
-  it("hands the row its ledger address and the type the correction moves", () => {
+  it("hands the row its ledger address, type, and optional details", () => {
     const p = profile("history stool edit");
     const loginId = login();
-    logBristolStool(p, YESTERDAY, 3, "08:12");
+    logBristolStool(p, YESTERDAY, 3, "08:12", undefined, {
+      color: "brown",
+      amount: "small",
+      urgency: "no",
+      pain: "yes",
+      straining: "no",
+      incomplete: "yes",
+      mucus: null,
+      blood: "no",
+    });
     const stored = db
       .prepare("SELECT id FROM stool_events WHERE profile_id = ?")
       .get(p) as { id: number };
@@ -1166,7 +1175,23 @@ describe("stool rows on the record", () => {
     const [row] = gatherHistoryLog(p, { loginId, limit: 200 }).rows.filter(
       (r) => r.kind === "stool"
     );
-    expect(row.edit).toEqual({ kind: "stool", rowId: stored.id, type: 3 });
+    expect(row.detail).toContain("Color: brown");
+    expect(row.detail).toContain("Visible blood: no");
+    expect(row.edit).toEqual({
+      kind: "stool",
+      rowId: stored.id,
+      type: 3,
+      details: {
+        color: "brown",
+        amount: "small",
+        urgency: "no",
+        pain: "yes",
+        straining: "no",
+        incomplete: "yes",
+        mucus: null,
+        blood: "no",
+      },
+    });
   });
 
   // #5872: an occurrence nobody saw the form of is a row on the record, titled `Stool`,

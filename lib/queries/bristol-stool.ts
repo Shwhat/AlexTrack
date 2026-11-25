@@ -29,6 +29,7 @@ import {
   buildBristolPanel,
   type BristolPanel,
   type BristolReading,
+  type StoolDetails,
 } from "@/lib/bristol-stool";
 
 const readingsStmt = hoistedStatement(
@@ -69,7 +70,7 @@ export function getBristolPanel(
 }
 
 /** One stored occurrence as the record addresses it: the row, its day, its instants. */
-export interface BristolRow {
+export interface BristolRow extends StoolDetails {
   /** The `stool_events` row id — the correction's and the delete's whole address. */
   id: number;
   /** Profile-local YYYY-MM-DD. */
@@ -101,7 +102,8 @@ export interface BristolRow {
 }
 
 const rowsStmt = hoistedStatement(
-  `SELECT id, date, type, occurred_at, recorded_at, time_source
+  `SELECT id, date, type, occurred_at, recorded_at, time_source,
+          color, amount, urgency, pain, straining, incomplete, mucus, blood
      FROM stool_events
     WHERE profile_id = ? AND date >= ? AND date <= ?
     ORDER BY date DESC, COALESCE(occurred_at, recorded_at) DESC, id DESC

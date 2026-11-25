@@ -252,6 +252,7 @@ import { migration as mDeviceLogins } from "./20261015-device-logins";
 import { migration as mPortalSuccessIndex } from "./20261016-portal-success-index";
 import { migration as mSyncSuccessIndex } from "./20261106-sync-success-index";
 import { migration as mHealthConnectRecordRefs } from "./20261118-health-connect-record-refs";
+import { migration as mStoolEventDetails } from "./20261125-stool-event-details";
 
 // The ordered, append-only list of schema migrations (issue #119). ORDER IS THE
 // CONTRACT: a migration's position (1-based) must equal its `id`, and the runner
@@ -513,6 +514,7 @@ export const MIGRATIONS: Migration[] = [
   mPortalSuccessIndex,
   mSyncSuccessIndex,
   mHealthConnectRecordRefs,
+  mStoolEventDetails,
 ];
 
 // The CLOSED numbered era (001–185): ids frozen, each === its array position + 1

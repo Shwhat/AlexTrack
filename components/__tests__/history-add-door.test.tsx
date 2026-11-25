@@ -886,10 +886,22 @@ describe("the composed usual leads the add door", () => {
 describe("a window the chart stated opens each kind's time control", () => {
   it("states the window's start on a movement", async () => {
     openAt("stool", { from: "19:10", to: "20:40" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Color" }), {
+      target: { value: "brown" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Urgency" }), {
+      target: { value: "no" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Visible blood" }), {
+      target: { value: "yes" },
+    });
     await submit("stool");
     expect(only("logStoolForm")).toMatchObject({
       date: FOUND_DAY,
       at: "19:10",
+      color: "brown",
+      urgency: "no",
+      blood: "yes",
     });
   });
 

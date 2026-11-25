@@ -1541,8 +1541,23 @@ export const DATASETS: ExportDataset[] = [
     key: "stool_events",
     label: "Stool log",
     table: "stool_events",
-    columns: ["date", "type", "recorded_at", "occurred_at", "time_source"],
-    select: `SELECT id, date, type, recorded_at, occurred_at, time_source
+    columns: [
+      "date",
+      "type",
+      "color",
+      "amount",
+      "urgency",
+      "pain",
+      "straining",
+      "incomplete",
+      "mucus",
+      "blood",
+      "recorded_at",
+      "occurred_at",
+      "time_source",
+    ],
+    select: `SELECT id, date, type, color, amount, urgency, pain, straining,
+                    incomplete, mucus, blood, recorded_at, occurred_at, time_source
        FROM stool_events WHERE profile_id = ? ORDER BY recorded_at DESC`,
   }),
   tableDataset({

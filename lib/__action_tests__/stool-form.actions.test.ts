@@ -547,4 +547,95 @@ describe("the day's count counts every movement, typed or not (#5872)", () => {
       data: { form: "stool", todayCount: 2 },
     });
   });
+
+  describe("logStoolForm — optional movement details", () => {
+    it("keeps unknown separate from explicit no and supports partial corrections", async () => {
+      const login = createLogin();
+      const profile = createProfile("stool-details", login.id);
+      actAs(login, profile);
+      const date = today(profile.id);
+
+      await logStoolForm(fd({ type: 4 }));
+      await logStoolForm(
+        fd({
+          type: 4,
+          color: "brown",
+          amount: "medium",
+          urgency: "no",
+          pain: "yes",
+          straining: "no",
+          incomplete: "no",
+          mucus: "no",
+          blood: "no",
+        })
+      );
+
+      const rows = () =>
+        db
+          .prepare(
+            `SELECT id, color, amount, urgency, pain, straining, incomplete, mucus, blood
+               FROM stool_events WHERE profile_id = ? ORDER BY id`
+          )
+          .all(profile.id) as {
+          id: number;
+          color: string | null;
+          amount: string | null;
+          urgency: string | null;
+          pain: string | null;
+          straining: string | null;
+          incomplete: string | null;
+          mucus: string | null;
+          blood: string | null;
+        }[];
+
+      expect(rows().map(({ id: _id, ...details }) => details)).toEqual([
+        {
+          color: null,
+          amount: null,
+          urgency: null,
+          pain: null,
+          straining: null,
+          incomplete: null,
+          mucus: null,
+          blood: null,
+        },
+        {
+          color: "brown",
+          amount: "medium",
+          urgency: "no",
+          pain: "yes",
+          straining: "no",
+          incomplete: "no",
+          mucus: "no",
+          blood: "no",
+        },
+      ]);
+
+      const second = rows()[1]!;
+      expect(
+        await correctStoolReading(
+          fd({
+            id: second.id,
+            type: 4,
+            color: "",
+            urgency: "yes",
+          })
+        )
+      ).toEqual({ ok: true });
+      expect(rows()[1]).toMatchObject({
+        color: null,
+        amount: "medium",
+        urgency: "yes",
+        pain: "yes",
+        blood: "no",
+      });
+
+      expect(await logStoolForm(fd({ type: 4, color: "blue" }))).toEqual({
+        ok: false,
+        error: "Check the optional stool details.",
+      });
+      expect(rows()).toHaveLength(2);
+      expect(date).toBe(today(profile.id));
+    });
+  });
 });

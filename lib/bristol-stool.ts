@@ -167,6 +167,62 @@ export function isBristolType(value: unknown): value is number {
   return typeof value === "number" && BY_TYPE.has(value);
 }
 
+export const STOOL_COLORS = [
+  "brown",
+  "green",
+  "yellow",
+  "red",
+  "black",
+  "pale",
+  "other",
+] as const;
+
+export type StoolColor = (typeof STOOL_COLORS)[number];
+
+export const STOOL_AMOUNTS = ["small", "medium", "large"] as const;
+
+export type StoolAmount = (typeof STOOL_AMOUNTS)[number];
+
+export const STOOL_YES_NO = ["yes", "no"] as const;
+
+export type StoolYesNo = (typeof STOOL_YES_NO)[number];
+
+export interface StoolDetails {
+  color: StoolColor | null;
+  amount: StoolAmount | null;
+  urgency: StoolYesNo | null;
+  pain: StoolYesNo | null;
+  straining: StoolYesNo | null;
+  incomplete: StoolYesNo | null;
+  mucus: StoolYesNo | null;
+  blood: StoolYesNo | null;
+}
+
+export type StoolDetailsPatch = Partial<StoolDetails>;
+
+export const EMPTY_STOOL_DETAILS: StoolDetails = {
+  color: null,
+  amount: null,
+  urgency: null,
+  pain: null,
+  straining: null,
+  incomplete: null,
+  mucus: null,
+  blood: null,
+};
+
+export function isStoolColor(value: unknown): value is StoolColor {
+  return STOOL_COLORS.some((color) => color === value);
+}
+
+export function isStoolAmount(value: unknown): value is StoolAmount {
+  return STOOL_AMOUNTS.some((amount) => amount === value);
+}
+
+export function isStoolYesNo(value: unknown): value is StoolYesNo {
+  return STOOL_YES_NO.some((answer) => answer === value);
+}
+
 /** The scale entry for a type, or null when the number names none. */
 export function bristolStoolType(value: unknown): BristolStoolType | null {
   return isBristolType(value) ? (BY_TYPE.get(value) ?? null) : null;

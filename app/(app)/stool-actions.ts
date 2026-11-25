@@ -11,7 +11,14 @@ import {
   getBristolRows,
   type BristolRow,
 } from "@/lib/queries/bristol-stool";
-import { parseBristolType, UNTYPED_FIELD_VALUE } from "@/lib/bristol-stool";
+import {
+  isStoolAmount,
+  isStoolColor,
+  isStoolYesNo,
+  parseBristolType,
+  type StoolDetailsPatch,
+  UNTYPED_FIELD_VALUE,
+} from "@/lib/bristol-stool";
 import {
   correctStoolEventCore,
   deleteStoolEventCore,
@@ -20,6 +27,60 @@ import { isRealIsoDate } from "@/lib/date";
 import type { StatedTimeRefusal } from "@/lib/stated-time";
 import type { HistoryClockKind } from "@/lib/history-format";
 import { gateItemProfile } from "./gate-item";
+
+type ParsedStoolDetails =
+  | { kind: "absent" }
+  | { kind: "invalid" }
+  | { kind: "valid"; details: StoolDetailsPatch };
+
+function parseStoolDetails(formData: FormData): ParsedStoolDetails {
+  const details: StoolDetailsPatch = {};
+  let present = false;
+  let invalid = false;
+
+  function read(name: keyof StoolDetailsPatch): string | undefined {
+    if (!formData.has(name)) return undefined;
+    present = true;
+    const value = formData.get(name);
+    if (typeof value !== "string") {
+      invalid = true;
+      return "";
+    }
+    return value.trim();
+  }
+
+  const color = read("color");
+  if (color !== undefined) {
+    if (!color) details.color = null;
+    else if (isStoolColor(color)) details.color = color;
+    else invalid = true;
+  }
+
+  const amount = read("amount");
+  if (amount !== undefined) {
+    if (!amount) details.amount = null;
+    else if (isStoolAmount(amount)) details.amount = amount;
+    else invalid = true;
+  }
+
+  for (const field of [
+    "urgency",
+    "pain",
+    "straining",
+    "incomplete",
+    "mucus",
+    "blood",
+  ] as const) {
+    const value = read(field);
+    if (value === undefined) continue;
+    if (!value) details[field] = null;
+    else if (isStoolYesNo(value)) details[field] = value;
+    else invalid = true;
+  }
+
+  if (invalid) return { kind: "invalid" };
+  return present ? { kind: "valid", details } : { kind: "absent" };
+}
 
 // The Bristol stool-form tap (issue #2785). Authorization at the request boundary, the
 // write core auth-blind and profileId-first — the house rule, and the same shape every
@@ -216,6 +277,9 @@ export async function logStoolForm(
   const profileId = await gateItemProfile(formData);
   const type = parseBristolType(formData.get("type"));
   if (type === null) return { ok: false, error: "Pick a type from 1 to 7." };
+  const parsedDetails = parseStoolDetails(formData);
+  if (parsedDetails.kind === "invalid")
+    return { ok: false, error: "Check the optional stool details." };
 
   // THE DAY THE MOUNT IS STANDING ON (#4424's date context), not a re-derived today.
   // Absent — the quick sheet's tap, and the overwhelming majority — is this profile's
@@ -237,7 +301,14 @@ export async function logStoolForm(
       row.type,
     ])
   );
-  const written = logBristolStool(profileId, date, type, at);
+  const written = logBristolStool(
+    profileId,
+    date,
+    type,
+    at,
+    undefined,
+    parsedDetails.kind === "valid" ? parsedDetails.details : {}
+  );
   // The type parsed and the date is a real day, so the core's only remaining refusal is
   // the shared never-the-future bound — said in those words rather than as a retry.
   if (!written.wrote) {
@@ -309,12 +380,9 @@ function stoolEventId(formData: FormData): number | null {
 }
 
 /**
- * Correct one logged movement's TYPE — the mis-tap #4433 names ("type 3, meant 4"),
- * and since #5872 both new halves of that question: SETTING a type on a row logged
- * without one ("I saw it after all"), and CLEARING one back to an occurrence nobody saw
- * the form of. An absent `type` field is the first; the literal string `none` is the
- * second. The old door could do neither, because the store had no way to hold an
- * untyped movement.
+ * Correct a logged movement's TYPE and optional details. The type can also be SET on a
+ * row logged without one or CLEARED back to an occurrence nobody saw the form of. An
+ * absent `type` field is the first; the literal string `none` is the second.
  *
  * And the INVERSE the quick-log row offers when a tap corrected a reading rather than
  * adding one (#5663): the same write, run back to the type the row carried before.
@@ -333,7 +401,15 @@ export async function correctStoolReading(
   const type = raw === UNTYPED_FIELD_VALUE ? null : parseBristolType(raw);
   if (type === null && raw !== UNTYPED_FIELD_VALUE)
     return { ok: false, error: "Pick a type from 1 to 7." };
-  const outcome = correctStoolEventCore(profileId, eventId, { type });
+  const parsedDetails = parseStoolDetails(formData);
+  if (parsedDetails.kind === "invalid")
+    return { ok: false, error: "Check the optional stool details." };
+  const outcome = correctStoolEventCore(profileId, eventId, {
+    type,
+    ...(parsedDetails.kind === "valid"
+      ? { details: parsedDetails.details }
+      : {}),
+  });
   if (outcome.kind !== "updated")
     return { ok: false, error: "Couldn't find that reading." };
   revalidateStool();

@@ -408,4 +408,54 @@ describe("a logged movement is correctable and deletable (#4433)", () => {
       db.prepare("SELECT type FROM stool_events WHERE id = ?").get(theirs.id)
     ).toEqual({ type: 4 });
   });
+
+  it("persists nullable stool details and applies detail corrections", () => {
+    const date = today(profileId);
+    const logged = logStoolCore(profileId, date, 4, "08:12", undefined, {
+      color: "brown",
+      amount: "medium",
+      urgency: "no",
+      pain: "yes",
+      straining: null,
+      incomplete: "no",
+      mucus: null,
+      blood: "no",
+    });
+    expect(logged.kind).toBe("logged");
+    if (logged.kind !== "logged") throw new Error("Stool log failed");
+
+    const readDetails = () =>
+      db
+        .prepare(
+          `SELECT color, amount, urgency, pain, straining, incomplete, mucus, blood
+             FROM stool_events WHERE id = ? AND profile_id = ?`
+        )
+        .get(logged.eventId, profileId);
+
+    expect(readDetails()).toEqual({
+      color: "brown",
+      amount: "medium",
+      urgency: "no",
+      pain: "yes",
+      straining: null,
+      incomplete: "no",
+      mucus: null,
+      blood: "no",
+    });
+    expect(
+      correctStoolEventCore(profileId, logged.eventId, {
+        details: { color: null, urgency: "yes", blood: "yes" },
+      }).kind
+    ).toBe("updated");
+    expect(readDetails()).toEqual({
+      color: null,
+      amount: "medium",
+      urgency: "yes",
+      pain: "yes",
+      straining: null,
+      incomplete: "no",
+      mucus: null,
+      blood: "yes",
+    });
+  });
 });

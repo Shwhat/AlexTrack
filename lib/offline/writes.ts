@@ -57,7 +57,7 @@ import {
   type CompositionInputRaw,
 } from "@/lib/composition-input";
 import { WAIST_CIRC_METRIC } from "@/lib/waist-circ-extract";
-import { parseBristolType } from "@/lib/bristol-stool";
+import { parseBristolType, type StoolDetailsPatch } from "@/lib/bristol-stool";
 import { logStoolCore } from "@/lib/stool-log-write";
 import { markDoseSkipped, markDoseTaken } from "@/lib/queries";
 import { captureDelete } from "@/lib/undo-delete-db";
@@ -841,7 +841,8 @@ export function logBristolStool(
   // The observation's profile-local wall clock, "HH:MM". Omitted → nobody stated one,
   // which is now a STATE the row records rather than a cue to read the clock.
   at?: string | null,
-  instant: Date = clockNow()
+  instant: Date = clockNow(),
+  details: StoolDetailsPatch = {}
 ): { wrote: false } | { wrote: true; statedTimeRefused?: StatedTimeRefusal } {
   const bristolType = parseBristolType(type);
   if (bristolType === null) return { wrote: false };
@@ -850,7 +851,8 @@ export function logBristolStool(
     date,
     bristolType,
     normalizeClockTime(at ?? null),
-    utcInstant(instant)
+    utcInstant(instant),
+    details
   );
   if (outcome.kind !== "logged") return { wrote: false };
   return {

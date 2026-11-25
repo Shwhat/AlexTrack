@@ -1410,9 +1410,35 @@ export function gatherHistoryLog(
         // NO VERDICT (#2785). The scale's own description is context, not a finding —
         // nothing here says a type is good or bad, and an untyped row says nothing at
         // all rather than reaching for a stand-in sentence.
-        detail: detailSegment([scale?.description]),
+        detail: detailSegment([
+          scale?.description,
+          reading.color ? `Color: ${reading.color}` : null,
+          reading.amount ? `Amount: ${reading.amount}` : null,
+          reading.urgency ? `Urgency: ${reading.urgency}` : null,
+          reading.pain ? `Pain: ${reading.pain}` : null,
+          reading.straining ? `Straining: ${reading.straining}` : null,
+          reading.incomplete
+            ? `Incomplete evacuation: ${reading.incomplete}`
+            : null,
+          reading.mucus ? `Mucus: ${reading.mucus}` : null,
+          reading.blood ? `Visible blood: ${reading.blood}` : null,
+        ]),
         media: 0,
-        edit: { kind: "stool", rowId: reading.id, type: scale?.type ?? null },
+        edit: {
+          kind: "stool",
+          rowId: reading.id,
+          type: scale?.type ?? null,
+          details: {
+            color: reading.color,
+            amount: reading.amount,
+            urgency: reading.urgency,
+            pain: reading.pain,
+            straining: reading.straining,
+            incomplete: reading.incomplete,
+            mucus: reading.mucus,
+            blood: reading.blood,
+          },
+        },
       });
     }
   }

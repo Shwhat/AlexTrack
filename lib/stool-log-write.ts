@@ -32,7 +32,14 @@
 import { db, today, writeTx } from "./db";
 import { instantNow, now as clockNow } from "./clock";
 import { isRealIsoDate, utcInstant } from "./date";
-import { isBristolType } from "./bristol-stool";
+import {
+  isBristolType,
+  isStoolAmount,
+  isStoolColor,
+  isStoolYesNo,
+  type StoolDetails,
+  type StoolDetailsPatch,
+} from "./bristol-stool";
 import { getTimezone } from "./settings";
 import {
   judgeStatedAt,
@@ -59,7 +66,8 @@ export type BristolType = number;
 export type StoolLogOutcome =
   | { kind: "logged"; eventId: number; statedTimeRefused?: StatedTimeRefusal }
   | { kind: "invalid-date" }
-  | { kind: "invalid-type" };
+  | { kind: "invalid-type" }
+  | { kind: "invalid-details" };
 
 /** The typed result of a correction, the sibling ledgers' shape. */
 export type StoolEventEditOutcome =
@@ -67,7 +75,37 @@ export type StoolEventEditOutcome =
   | { kind: "not-found" }
   | { kind: "invalid-date" }
   | { kind: "invalid-type" }
+  | { kind: "invalid-details" }
   | { kind: "invalid-stated-at"; reason: StatedTimeRefusal };
+
+function isValidDetails(details: StoolDetailsPatch): boolean {
+  return (
+    (details.color === undefined ||
+      details.color === null ||
+      isStoolColor(details.color)) &&
+    (details.amount === undefined ||
+      details.amount === null ||
+      isStoolAmount(details.amount)) &&
+    (details.urgency === undefined ||
+      details.urgency === null ||
+      isStoolYesNo(details.urgency)) &&
+    (details.pain === undefined ||
+      details.pain === null ||
+      isStoolYesNo(details.pain)) &&
+    (details.straining === undefined ||
+      details.straining === null ||
+      isStoolYesNo(details.straining)) &&
+    (details.incomplete === undefined ||
+      details.incomplete === null ||
+      isStoolYesNo(details.incomplete)) &&
+    (details.mucus === undefined ||
+      details.mucus === null ||
+      isStoolYesNo(details.mucus)) &&
+    (details.blood === undefined ||
+      details.blood === null ||
+      isStoolYesNo(details.blood))
+  );
+}
 
 /**
  * RECORD ONE MOVEMENT.
@@ -88,11 +126,13 @@ export function logStoolCore(
   // The CAPTURE instant, canonical. Defaults to now; the offline replay supplies the
   // instant the tap actually happened at, which is a record stamp and never the
   // movement's own — see logBristolStool.
-  recordedAt: string = instantNow()
+  recordedAt: string = instantNow(),
+  details: StoolDetailsPatch = {}
 ): StoolLogOutcome {
   if (!isRealIsoDate(date) || date > today(profileId))
     return { kind: "invalid-date" };
   if (type !== null && !isBristolType(type)) return { kind: "invalid-type" };
+  if (!isValidDetails(details)) return { kind: "invalid-details" };
 
   const tz = getTimezone(profileId);
   const stated = statedInstant(at ?? null, date, tz);
@@ -102,8 +142,9 @@ export function logStoolCore(
     const inserted = db
       .prepare(
         `INSERT INTO stool_events
-           (profile_id, date, recorded_at, occurred_at, time_source, type)
-         VALUES (?, ?, ?, ?, ?, ?)`
+           (profile_id, date, recorded_at, occurred_at, time_source, type,
+            color, amount, urgency, pain, straining, incomplete, mucus, blood)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         profileId,
@@ -111,7 +152,15 @@ export function logStoolCore(
         recordedAt,
         stated.kind === "accepted" ? stated.at : null,
         stated.kind === "accepted" ? "stated" : null,
-        type
+        type,
+        details.color ?? null,
+        details.amount ?? null,
+        details.urgency ?? null,
+        details.pain ?? null,
+        details.straining ?? null,
+        details.incomplete ?? null,
+        details.mucus ?? null,
+        details.blood ?? null
       );
     return {
       kind: "logged" as const,
@@ -174,7 +223,12 @@ function statedInstant(
 export function correctStoolEventCore(
   profileId: number,
   eventId: number,
-  patch: { date?: string; statedAt?: Date | null; type?: BristolType | null }
+  patch: {
+    date?: string;
+    statedAt?: Date | null;
+    type?: BristolType | null;
+    details?: StoolDetailsPatch;
+  }
 ): StoolEventEditOutcome {
   if (
     patch.type !== undefined &&
@@ -182,10 +236,13 @@ export function correctStoolEventCore(
     !isBristolType(patch.type)
   )
     return { kind: "invalid-type" };
+  if (patch.details && !isValidDetails(patch.details))
+    return { kind: "invalid-details" };
   return writeTx(() => {
     const row = db
       .prepare(
-        `SELECT date, occurred_at, time_source, type
+        `SELECT date, occurred_at, time_source, type, color, amount,
+                urgency, pain, straining, incomplete, mucus, blood
            FROM stool_events
           WHERE id = ? AND profile_id = ?`
       )
@@ -195,6 +252,14 @@ export function correctStoolEventCore(
           occurred_at: string | null;
           time_source: string | null;
           type: number | null;
+          color: StoolDetails["color"];
+          amount: StoolDetails["amount"];
+          urgency: StoolDetails["urgency"];
+          pain: StoolDetails["pain"];
+          straining: StoolDetails["straining"];
+          incomplete: StoolDetails["incomplete"];
+          mucus: StoolDetails["mucus"];
+          blood: StoolDetails["blood"];
         }
       | undefined;
     if (!row) return { kind: "not-found" as const };
@@ -232,16 +297,49 @@ export function correctStoolEventCore(
         : patch.statedAt === null
           ? null
           : "stated";
+    const details = {
+      color:
+        patch.details?.color === undefined ? row.color : patch.details.color,
+      amount:
+        patch.details?.amount === undefined ? row.amount : patch.details.amount,
+      urgency:
+        patch.details?.urgency === undefined
+          ? row.urgency
+          : patch.details.urgency,
+      pain: patch.details?.pain === undefined ? row.pain : patch.details.pain,
+      straining:
+        patch.details?.straining === undefined
+          ? row.straining
+          : patch.details.straining,
+      incomplete:
+        patch.details?.incomplete === undefined
+          ? row.incomplete
+          : patch.details.incomplete,
+      mucus:
+        patch.details?.mucus === undefined ? row.mucus : patch.details.mucus,
+      blood:
+        patch.details?.blood === undefined ? row.blood : patch.details.blood,
+    };
 
     db.prepare(
       `UPDATE stool_events
-          SET date = ?, occurred_at = ?, time_source = ?, type = ?
+          SET date = ?, occurred_at = ?, time_source = ?, type = ?,
+              color = ?, amount = ?, urgency = ?, pain = ?, straining = ?,
+              incomplete = ?, mucus = ?, blood = ?
         WHERE id = ? AND profile_id = ?`
     ).run(
       nextDate,
       nextStatedAt,
       nextTimeSource,
       patch.type === undefined ? row.type : patch.type,
+      details.color,
+      details.amount,
+      details.urgency,
+      details.pain,
+      details.straining,
+      details.incomplete,
+      details.mucus,
+      details.blood,
       eventId,
       profileId
     );
